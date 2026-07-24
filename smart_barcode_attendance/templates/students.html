@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white d-flex flex-wrap justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-people"></i> Registered Students</h5>
+        <div class="d-flex gap-2 mt-2 mt-md-0">
+            <form method="GET" action="/students" class="d-flex gap-2">
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="Search by name, dept, or barcode..." value="{{ search }}" style="min-width: 200px;">
+                <button type="submit" class="btn btn-sm btn-light"><i class="bi bi-search"></i> Search</button>
+                {% if search %}
+                <a href="/students" class="btn btn-sm btn-outline-light"><i class="bi bi-x-lg"></i> Clear</a>
+                {% endif %}
+            </form>
+            <a href="/api/export_attendance" class="btn btn-sm btn-success">
+                <i class="bi bi-download"></i> Export All
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Student Name</th>
+                        <th>Department</th>
+                        <th>Barcode ID</th>
+                        <th>Attendance %</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if students %}
+                        {% for student in students %}
+                        <tr>
+                            <td>{{ student.student_id }}</td>
+                            <td><strong>{{ student.student_name }}</strong></td>
+                            <td>{{ student.department }}</td>
+                            <td><code>{{ student.barcode_id }}</code></td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 8px; max-width: 100px;">
+                                        <div class="progress-bar {% if student.attendance_pct >= 75 %}bg-success{% elif student.attendance_pct >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             style="width: {{ student.attendance_pct }}%"></div>
+                                    </div>
+                                    <span class="small fw-semibold">{{ "%.1f"|format(student.attendance_pct) }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteStudent({{ student.student_id }}, '{{ student.student_name }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                                {% if search %}
+                                    No students found matching "<strong>{{ search }}</strong>".
+                                {% else %}
+                                    No students registered yet. <a href="/register">Register a student</a>.
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if students %}
+    <div class="card-footer text-muted small">
+        <i class="bi bi-info-circle"></i> Showing {{ students|length }} student(s){% if search %} matching "<strong>{{ search }}</strong>"{% endif %}.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function deleteStudent(studentId, studentName) {
+        if (!confirm(`Are you sure you want to delete "${studentName}"?\nThis will also delete all their attendance records.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/delete_student', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: studentId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`Student "${studentName}" deleted successfully`, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Error: ' + data.message, 'danger');
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'danger');
+        }
+    }
+</script>
+{% endblock %}
+

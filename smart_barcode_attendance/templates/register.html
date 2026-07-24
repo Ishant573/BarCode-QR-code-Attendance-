@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-person-plus"></i> Register New Student</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Auto QR Code:</strong> A unique barcode ID and QR code will be automatically generated when you register.
+                </div>
+                <form id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Student Name <span class="text-danger">*</span></label>
+                        <input type="text" id="nameInput" class="form-control form-control-lg" placeholder="Enter full name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department / Course <span class="text-danger">*</span></label>
+                        <input type="text" id="deptInput" class="form-control form-control-lg" placeholder="e.g. Computer Science" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg" id="registerBtn">
+                            <i class="bi bi-check-lg"></i> Register & Generate QR Code
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                            <i class="bi bi-eraser"></i> Clear Form
+                        </button>
+                    </div>
+                </form>
+                <div id="registerResult" class="mt-3" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Recent Registrations -->
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recently Registered</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Barcode ID</th>
+                                <th>QR Code</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentStudents">
+                            <tr><td colspan="4" class="text-center text-muted py-3">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load recent students with QR codes
+    async function loadRecentStudents() {
+        try {
+            const res = await fetch('/api/students');
+            const data = await res.json();
+            const students = data.students.slice(-5).reverse();
+            const tbody = document.getElementById('recentStudents');
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No students registered yet.</td></tr>';
+            } else {
+                tbody.innerHTML = students.map(s => `
+                    <tr>
+                        <td><strong>${s.student_name}</strong></td>
+                        <td>${s.department}</td>
+                        <td><code>${s.barcode_id}</code></td>
+                        <td>
+                            <img src="/static/qrcodes/${s.barcode_id}.png" 
+                                 alt="QR" style="width: 40px; height: 40px; cursor: pointer;"
+                                 onclick="window.open('/static/qrcodes/${s.barcode_id}.png', '_blank')"
+                                 onerror="this.style.display='none'">
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) {
+            document.getElementById('recentStudents').innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load students.</td></tr>';
+        }
+    }
+    loadRecentStudents();
+
+    // Handle registration form
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('nameInput').value.trim();
+        const dept = document.getElementById('deptInput').value.trim();
+
+        if (!name || !dept) {
+            showToast('Student name and department are required', 'warning');
+            return;
+        }
+
+        // No barcode input needed - will be auto-generated by the server
+        const btn = document.getElementById('registerBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Registering...';
+
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, department: dept })
+            });
+            const data = await res.json();
+            const resultDiv = document.getElementById('registerResult');
+            resultDiv.style.display = 'block';
+
+            if (data.success) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success text-center">
+                        <h5><i class="bi bi-check-circle-fill"></i> Student Registered!</h5>
+                        <p class="mb-1"><strong>${name}</strong> - ${dept}</p>
+                        <hr>
+                        <div class="mb-2">
+                            <strong>Barcode ID:</strong>
+                            <code style="font-size: 1.1rem;">${data.barcode_id}</code>
+                        </div>
+                        <div class="mb-2">
+                            <strong>QR Code:</strong>
+                            <div class="d-flex justify-content-center">
+                                <img src="data:image/png;base64,${data.qr_code}" 
+                                     alt="QR Code for ${data.barcode_id}" 
+                                     style="width: 150px; height: 150px; border: 2px solid #27ae60; border-radius: 8px; padding: 8px; background: white;">
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-primary" onclick="printQR('${data.qr_code}', '${data.barcode_id}', '${name}')">
+                                <i class="bi bi-printer"></i> Print QR Code
+                            </button>
+                            <a href="/static/qrcodes/${data.barcode_id}.png" download="${data.barcode_id}_qrcode.png" class="btn btn-sm btn-success">
+                                <i class="bi bi-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+                showToast(`Student ${name} registered with ID: ${data.barcode_id}`, 'success');
+                clearForm();
+                loadRecentStudents();
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle-fill"></i> ${data.message}</div>`;
+                showToast(data.message, 'danger');
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Register & Generate QR Code';
+        }
+    });
+
+    function printQR(qrBase64, barcodeId, studentName) {
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head><title>QR Code - ${barcodeId}</title>
+            <style>
+                body { text-align: center; font-family: Arial, sans-serif; padding: 40px; }
+                h2 { color: #2c3e50; }
+                .qr-wrap { margin: 20px auto; width: 250px; }
+                img { width: 250px; height: 250px; }
+                .id { font-size: 18px; font-weight: bold; color: #3498db; margin: 10px 0; }
+                .name { font-size: 16px; color: #555; }
+                @media print { body { padding: 20px; } }
+            </style>
+            </head>
+            <body>
+                <h2>🎓 Student QR Code</h2>
+                <div class="qr-wrap">
+                    <img src="data:image/png;base64,${qrBase64}" alt="QR Code">
+                </div>
+                <div class="name">${studentName}</div>
+                <div class="id">${barcodeId}</div>
+                <p style="margin-top: 20px; color: #999; font-size: 12px;">Smart Barcode Attendance System</p>
+                <script>
+                    window.onload = function() { window.print(); }
+                <\/script>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    }
+
+    function clearForm() {
+        document.getElementById('nameInput').value = '';
+        document.getElementById('deptInput').value = '';
+        document.getElementById('registerResult').style.display = 'none';
+        document.getElementById('nameInput').focus();
+    }
+</script>
+{% endblock %}
+

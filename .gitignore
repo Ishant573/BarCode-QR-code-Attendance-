@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated QR codes
+smart_barcode_attendance/static/qrcodes/
+

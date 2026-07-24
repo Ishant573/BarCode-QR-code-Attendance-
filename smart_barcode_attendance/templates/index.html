@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-4" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
+                <h2 class="fw-bold mb-2"><i class="bi bi-upc-scan"></i> Smart Barcode Attendance System</h2>
+                <p class="mb-0 opacity-75">Scan barcodes/QR codes to automatically mark attendance</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                    <i class="bi bi-people fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Total Students</div>
+                    <div class="fs-2 fw-bold text-primary" id="studentsCount">{{ students_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                    <i class="bi bi-calendar-check fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Today's Attendance</div>
+                    <div class="fs-2 fw-bold text-success" id="todayCount">{{ today_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+                    <i class="bi bi-file-text fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Total Records</div>
+                    <div class="fs-2 fw-bold text-warning" id="totalRecords">{{ total_records }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Camera Scanner Panel -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-camera-video"></i> Camera Scanner</span>
+                <div>
+                    <button class="btn btn-sm btn-success me-1" id="startScannerBtn" onclick="startCameraScanner()">
+                        <i class="bi bi-play-fill"></i> Start Camera
+                    </button>
+                    <button class="btn btn-sm btn-danger" id="stopScannerBtn" onclick="stopCameraScanner()" style="display:none;">
+                        <i class="bi bi-stop-fill"></i> Stop Camera
+                    </button>
+                </div>
+            </div>
+            <div class="card-body text-center">
+                <!-- Camera viewfinder -->
+                <div id="scannerContainer" style="width: 100%; max-width: 500px; margin: 0 auto; position: relative;">
+                    <div id="scannerPlaceholder" class="py-5" style="background: #f0f0f0; border-radius: 8px;">
+                        <i class="bi bi-camera" style="font-size: 4rem; color: #adb5bd;"></i>
+                        <p class="text-muted mt-3 mb-0">Camera is off. Click "Start Camera" to begin scanning.</p>
+                    </div>
+                    <div id="qr-reader" style="width: 100%; display: none;"></div>
+                    <div id="qr-reader-results" style="display: none;"></div>
+                </div>
+                
+                <!-- Scanner status -->
+                <div id="scannerStatus" class="mt-2 small text-muted">Camera inactive</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Entry & Results Panel -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-keyboard"></i> Manual Entry & Scan Results
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" id="barcodeInput" class="form-control form-control-lg" placeholder="Enter barcode ID manually..." autofocus>
+                    <button class="btn btn-success" onclick="markAttendance()">
+                        <i class="bi bi-check-lg"></i> Mark Present
+                    </button>
+                </div>
+                <div id="scanResult" class="mt-3" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card mt-3">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white;">
+                <i class="bi bi-clock-history"></i> Recent Activity
+            </div>
+            <div class="card-body">
+                <div id="recentActivity">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No recent activity. Scan a barcode to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header" style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white;">
+                <i class="bi bi-lightning-charge"></i> Quick Actions
+            </div>
+            <div class="card-body">
+                <a href="/register" class="btn btn-success me-2 mb-2">
+                    <i class="bi bi-person-plus"></i> Register Student
+                </a>
+                <a href="/attendance" class="btn btn-primary me-2 mb-2">
+                    <i class="bi bi-calendar-check"></i> View Attendance
+                </a>
+                <a href="/students" class="btn btn-info text-white me-2 mb-2">
+                    <i class="bi bi-people"></i> View Students
+                </a>
+                <a href="/api/export_attendance?date={{ today_date }}" class="btn btn-warning me-2 mb-2">
+                    <i class="bi bi-download"></i> Export Today's Attendance
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- html5-qrcode library for camera-based scanning -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    let html5QrCode = null;
+    let isScannerRunning = false;
+
+    // ============ CAMERA SCANNER ============
+
+    function startCameraScanner() {
+        const scannerContainer = document.getElementById('qr-reader');
+        const placeholder = document.getElementById('scannerPlaceholder');
+        const statusEl = document.getElementById('scannerStatus');
+
+        // Show scanner viewfinder
+        scannerContainer.style.display = 'block';
+        placeholder.style.display = 'none';
+        statusEl.textContent = '⏳ Initializing camera...';
+        statusEl.className = 'mt-2 small text-warning';
+
+        // Configure scanner
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        };
+
+        html5QrCode = new Html5Qrcode("qr-reader");
+
+        html5QrCode.start(
+            { facingMode: "environment" }, // Use back camera
+            config,
+            onScanSuccess,
+            onScanError
+        ).then(() => {
+            isScannerRunning = true;
+            document.getElementById('startScannerBtn').style.display = 'none';
+            document.getElementById('stopScannerBtn').style.display = 'inline-block';
+            statusEl.textContent = '✅ Camera active - Point barcode/QR code at camera';
+            statusEl.className = 'mt-2 small text-success';
+            showToast('Camera started successfully', 'success');
+        }).catch((err) => {
+            // If back camera fails, try front camera
+            html5QrCode.start(
+                { facingMode: "user" },
+                config,
+                onScanSuccess,
+                onScanError
+            ).then(() => {
+                isScannerRunning = true;
+                document.getElementById('startScannerBtn').style.display = 'none';
+                document.getElementById('stopScannerBtn').style.display = 'inline-block';
+                statusEl.textContent = '✅ Camera active (front) - Point barcode/QR code at camera';
+                statusEl.className = 'mt-2 small text-success';
+                showToast('Camera started (front camera)', 'success');
+            }).catch((err2) => {
+                console.error('Camera error:', err2);
+                scannerContainer.style.display = 'none';
+                placeholder.style.display = 'block';
+                statusEl.textContent = '❌ Camera error: ' + err2;
+                statusEl.className = 'mt-2 small text-danger';
+                showToast('Failed to access camera. Check permissions.', 'danger');
+            });
+        });
+    }
+
+    function stopCameraScanner() {
+        if (html5QrCode && isScannerRunning) {
+            html5QrCode.stop().then(() => {
+                isScannerRunning = false;
+                document.getElementById('startScannerBtn').style.display = 'inline-block';
+                document.getElementById('stopScannerBtn').style.display = 'none';
+                document.getElementById('scannerContainer').querySelector('#qr-reader').style.display = 'none';
+                document.getElementById('scannerPlaceholder').style.display = 'block';
+                const statusEl = document.getElementById('scannerStatus');
+                statusEl.textContent = '⏹️ Camera stopped';
+                statusEl.className = 'mt-2 small text-muted';
+                showToast('Camera stopped', 'info');
+            });
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // Play a sound effect (vibrate on mobile)
+        if (navigator.vibrate) navigator.vibrate(200);
+
+        // Show flash effect
+        const container = document.getElementById('scannerContainer');
+        container.style.transition = 'background 0.1s';
+        container.style.background = 'rgba(39, 174, 96, 0.3)';
+        setTimeout(() => { container.style.background = 'transparent'; }, 300);
+
+        // Automatically mark attendance with the scanned code
+        document.getElementById('barcodeInput').value = decodedText;
+        markAttendance();
+    }
+
+    function onScanError(error) {
+        // Silently ignore scan errors (they happen between detections)
+    }
+
+    // ============ ATTENDANCE MARKING ============
+
+    // Auto-focus barcode input
+    document.getElementById('barcodeInput').focus();
+
+    async function markAttendance() {
+        const input = document.getElementById('barcodeInput');
+        const barcodeId = input.value.trim();
+        if (!barcodeId) {
+            showToast('Please enter or scan a barcode ID', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/mark_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ barcode_id: barcodeId })
+            });
+            const data = await res.json();
+            const resultDiv = document.getElementById('scanResult');
+            resultDiv.style.display = 'block';
+
+            if (data.success && data.student) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success mb-0">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="bi bi-check-circle-fill" style="font-size: 2rem; color: #27ae60;"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">✅ Attendance Marked!</h5>
+                                <p class="mb-0"><strong>${data.student.name}</strong> — ${data.student.department}</p>
+                                <small class="text-muted">${data.student.date} at ${data.student.time}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showToast(`${data.student.name} — PRESENT ✅`, 'success');
+                addRecentActivity(data.student, 'present');
+                updateDashboard();
+            } else if (data.student) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning mb-0">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem; color: #f39c12;"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">⚠️ Already Marked Today</h5>
+                                <p class="mb-0"><strong>${data.student.name}</strong> was already marked present today.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showToast(`${data.student.name} — Already marked today`, 'warning');
+                addRecentActivity(data.student, 'duplicate');
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="bi bi-x-circle-fill" style="font-size: 2rem; color: #e74c3c;"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">❌ Unknown Barcode</h5>
+                                <p class="mb-0">No student found with ID: <code>${barcodeId}</code></p>
+                                <a href="/register" class="btn btn-sm btn-primary mt-2">Register this student</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showToast('Unknown barcode: ' + barcodeId, 'danger');
+            }
+
+            input.value = '';
+            input.focus();
+        } catch (err) {
+            showToast('Error: ' + err.message, 'danger');
+        }
+    }
+
+    // Handle Enter key for manual input
+    document.getElementById('barcodeInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            markAttendance();
+        }
+    });
+
+    // ============ RECENT ACTIVITY ============
+
+    function addRecentActivity(student, type) {
+        const container = document.getElementById('recentActivity');
+        const emptyState = container.querySelector('.text-center.text-muted.py-4');
+        if (emptyState) emptyState.remove();
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+        const icon = type === 'present' ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-warning';
+        const label = type === 'present' ? 'Marked Present' : 'Already Marked';
+
+        const item = document.createElement('div');
+        item.className = 'd-flex align-items-center p-2 border-bottom';
+        item.innerHTML = `
+            <i class="bi ${icon} me-3 fs-4"></i>
+            <div class="flex-grow-1">
+                <strong>${student.name}</strong>
+                <small class="text-muted d-block">${student.department} · ${label}</small>
+            </div>
+            <small class="text-muted">${timeStr}</small>
+        `;
+
+        container.insertBefore(item, container.firstChild);
+
+        // Keep only last 10 items
+        while (container.children.length > 10) {
+            container.lastChild.remove();
+        }
+    }
+
+    // ============ DASHBOARD STATS ============
+
+    async function updateDashboard() {
+        try {
+            const res = await fetch('/api/dashboard');
+            const data = await res.json();
+            document.getElementById('studentsCount').textContent = data.students_count;
+            document.getElementById('todayCount').textContent = data.today_count;
+            document.getElementById('totalRecords').textContent = data.total_records;
+        } catch (err) {
+            console.error('Failed to update dashboard:', err);
+        }
+    }
+
+    // Poll for dashboard updates every 30 seconds
+    setInterval(updateDashboard, 30000);
+</script>
+{% endblock %}
+

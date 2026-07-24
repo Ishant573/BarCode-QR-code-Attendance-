@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Attendance Records</h5>
+        <div class="d-flex gap-2 mt-2 mt-md-0">
+            <form method="GET" action="/attendance" class="d-flex gap-2">
+                <input type="date" name="date" class="form-control form-control-sm" value="{{ filter_date }}" style="max-width: 180px;">
+                <button type="submit" class="btn btn-sm btn-light"><i class="bi bi-funnel"></i> Filter</button>
+                <a href="/attendance" class="btn btn-sm btn-outline-light"><i class="bi bi-x-lg"></i> Clear</a>
+            </form>
+            <a href="/api/export_attendance?date={{ filter_date }}" class="btn btn-sm btn-success">
+                <i class="bi bi-download"></i> Export CSV
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Department</th>
+                        <th>Barcode ID</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if records %}
+                        {% for record in records %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ record.student_name }}</strong></td>
+                            <td>{{ record.department }}</td>
+                            <td><code>{{ record.barcode_id }}</code></td>
+                            <td>{{ record.date }}</td>
+                            <td>{{ record.time }}</td>
+                            <td>
+                                {% if record.status == "Present" %}
+                                    <span class="badge badge-present"><i class="bi bi-check-circle"></i> Present</span>
+                                {% else %}
+                                    <span class="badge badge-duplicate"><i class="bi bi-exclamation-triangle"></i> {{ record.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                                No attendance records found{% if filter_date %} for <strong>{{ filter_date }}</strong>{% endif %}.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if records %}
+    <div class="card-footer text-muted small">
+        <i class="bi bi-info-circle"></i> Showing {{ records|length }} record(s){% if filter_date %} for {{ filter_date }}{% endif %}.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
