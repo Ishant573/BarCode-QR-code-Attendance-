@@ -19,12 +19,24 @@ import qrcode
 import base64
 import uuid
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static"),
+)
 db = DatabaseManager()
 
-# Directory to save generated QR codes
-QR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "qrcodes")
-os.makedirs(QR_DIR, exist_ok=True)
+# Directory to save generated QR codes (with fallback for read-only serverless filesystems)
+QR_DIR = os.path.join(BASE_DIR, "static", "qrcodes")
+try:
+    os.makedirs(QR_DIR, exist_ok=True)
+except OSError:
+    QR_DIR = os.path.join("/tmp", "qrcodes")
+    try:
+        os.makedirs(QR_DIR, exist_ok=True)
+    except OSError:
+        pass
 
 
 def generate_barcode_id():
@@ -45,10 +57,13 @@ def generate_qr_code(barcode_id, student_name=""):
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
 
-    # Save to file
+    # Save to file if directory is writable
     filename = f"{barcode_id}.png"
-    filepath = os.path.join(QR_DIR, filename)
-    img.save(filepath)
+    try:
+        filepath = os.path.join(QR_DIR, filename)
+        img.save(filepath)
+    except Exception:
+        pass
 
     # Also return as base64 for inline display
     from PIL import Image
@@ -58,6 +73,29 @@ def generate_qr_code(barcode_id, student_name=""):
     buffer.seek(0)
     img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return img_base64, filename
+
+
+@app.route("/static/qrcodes/<path:filename>")
+def serve_qr_code(filename):
+    """Serve QR code image from disk or dynamically generate if not found."""
+    filepath = os.path.join(QR_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype="image/png")
+
+    barcode_id = os.path.splitext(filename)[0]
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(barcode_id)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return send_file(buffer, mimetype="image/png")
 
 
 # ==================== ROUTES ====================

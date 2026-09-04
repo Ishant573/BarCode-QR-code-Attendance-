@@ -9,7 +9,42 @@ from datetime import datetime
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_DB_PATH = os.path.join(BASE_DIR, "attendance.db")
+LOCAL_DB_PATH = os.path.join(BASE_DIR, "attendance.db")
+
+
+def resolve_db_path(custom_path=None):
+    """Resolve database path, using /tmp in serverless / read-only environments."""
+    if custom_path:
+        return custom_path
+
+    # Check if running in Vercel or AWS Lambda serverless runtime
+    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+    if is_serverless:
+        tmp_db = "/tmp/attendance.db"
+        if not os.path.exists(tmp_db) and os.path.exists(LOCAL_DB_PATH):
+            try:
+                import shutil
+                shutil.copyfile(LOCAL_DB_PATH, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+
+    # In local environment, verify write access; fallback to /tmp if read-only
+    try:
+        test_file = os.path.join(BASE_DIR, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return LOCAL_DB_PATH
+    except OSError:
+        tmp_db = "/tmp/attendance.db"
+        if not os.path.exists(tmp_db) and os.path.exists(LOCAL_DB_PATH):
+            try:
+                import shutil
+                shutil.copyfile(LOCAL_DB_PATH, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
 
 
 class DatabaseManager:
@@ -27,10 +62,11 @@ class DatabaseManager:
         Args:
             db_path (str): Path to the SQLite database file.
         """
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = resolve_db_path(db_path)
         self.connection = None
         self.connect()
         self.create_tables()
+        self.seed_initial_data_if_empty()
 
     def connect(self):
         """Establish connection to the SQLite database."""
@@ -79,6 +115,30 @@ class DatabaseManager:
 
         self.connection.commit()
         print("[DB] Tables created successfully.")
+
+    def seed_initial_data_if_empty(self):
+        """Seed initial demo students if the database has no student records."""
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT COUNT(*) FROM students")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                demo_students = [
+                    ("Test Student", "Computer Science", "STU-0FC50AEABF83"),
+                    ("John Doe", "Computer Science", "STU-0171727A0C93"),
+                    ("Jane Smith", "Mathematics", "STU-5279F4D4E2D9"),
+                    ("Bhushan", "BCA", "STU-99932E01453B"),
+                    ("Ishant", "BCA", "STU-FB9CA6F3D0A2"),
+                    ("Rashmita", "BCA", "STU-94E885B578F0"),
+                ]
+                cursor.executemany(
+                    "INSERT INTO students (student_name, department, barcode_id) VALUES (?, ?, ?)",
+                    demo_students,
+                )
+                self.connection.commit()
+                print(f"[DB] Seeded {len(demo_students)} initial student records.")
+        except Exception as e:
+            print(f"[DB] Error checking/seeding initial data: {e}")
 
     # ==================== STUDENT OPERATIONS ====================
 
